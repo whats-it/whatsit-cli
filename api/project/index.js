@@ -13,6 +13,7 @@ var touch       = require('touch');
 var fs          = require('fs');
 var files       = require('../../lib/files');
 var WhatsIt  = require('whatsit-sdk-js')
+// var WhatsIt  = require('../../../whatsit-sdk-js/dist/WhatsIt')
 let aw = new WhatsIt({});
 let awUser = aw.getUser();
 let awProject = aw.getProject();
@@ -26,53 +27,68 @@ var repos = new Map();
 var tmpProjects = new Map();
 
 exports.add  = function (options) {
-  return new Promise ((resolve, reject) => {
+  return new Promise((resolve, reject) => {
 
-    if (!options.owner && !options.repo) {
-        github.getOrgs()
-          .then((orgs) => selectLogin(orgs))
-          .then((login) => selectRepo(login))
-          .then((repo) => addRepo(repo))
-          .then((projectId) => {
-            showAddProjectDoneMsg(confStore.get(conf.LAST_ADDED_PROJECT), projectId)
-            resolve()
-          })
-    } else if (options.owner == null && options.repo != null) {
-        github.getOrgs()
-          .then((orgs) => selectLogin(orgs))
-          .then((login) => checkRepo(login, options.repo))
-          .then((repo) => addRepo(repo))
-          .then((projectId) => {
-            showAddProjectDoneMsg(confStore.get(conf.LAST_ADDED_PROJECT), projectId)
-            resolve()
-          })
-    } else if (options.owner != null && options.repo == null) {
-        selectRepo(options.owner)
-          .then((repo) => addRepo(repo))
-          .then((projectId) => {
-            showAddProjectDoneMsg(confStore.get(conf.LAST_ADDED_PROJECT), projectId)
-            resolve()
-        })
-    } else if (options.owner != null && options.repo != null) {
-        checkRepo(options.owner, options.repo)
-          .then((repo) => addRepo(repo))
-          .then((projectId) => {
-            showAddProjectDoneMsg(confStore.get(conf.LAST_ADDED_PROJECT), projectId)
-            resolve()
-        })
+    if (!options.projectName) {
+      // To request projectName as mandatory
+      console.log('Need to get project name');
+
+      var questions = [
+        {
+          name: 'projectName',
+          type: 'input',
+          message: 'Type Project Name',
+        }
+      ];
+
+      inquirer.prompt(questions).then((projectName) => {
+        // console.log('Your project name is ' + JSON.stringify(projectName));
+        addProject(projectName.projectName, resolve);
+      });
+
+    } else if (options.projectName) {
+      addProject(options.projectName, resolve);
     }
   })
+}
+
+function addProject(projectName, resolve) {
+  var status = new Spinner('Adding a project ...');
+  status.start();
+  var data = {
+    name: projectName,
+    owner: confStore.get('userId'),
+    status: 'Preparing'
+  };
+
+  // Invoke addProject
+  awProject.addProject(data)
+    .then((res) => {
+      if (res != null) {
+        console.log(JSON.stringify(res.data, null, 2));
+        console.log('A project ' + res.data.data.name + ' is created');
+        resolve(res.data.data._id)
+      }
+      status.stop();
+    })
+    .catch(err => {
+      console.error(err)
+      status.stop();
+    })
 }
 
 exports.project = function (options) {
   return new Promise ((resolve, reject) => {
     let userId = confStore.get('userId')
     if (options.list == true) {
+      if (userId == null) {
+        console.log('Can not find userId in configstore');
+      }
       awApi.getProjectsByUser(userId)
         .then((projects) => {
           showProjects(projects)
           resolve()
-          })
+        })
     } else if (options.subscriber == true) {
       reject('Error : -s <subscriber> | Need subscriber emails')
     } else if (options.subscriber != null) {
