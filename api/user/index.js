@@ -28,6 +28,7 @@ exports.login = function () {
         case 422:
           console.log(chalk.red('You already have an access token.'));
           console.log(chalk.red('Delete the old access token (Go to https://github.com/settings/tokens)'));
+          // Todo : To check whether token is stored or not in local storage(configstore)
           break;
       }
     }
@@ -41,8 +42,8 @@ exports.login = function () {
           email: data.email,
           oauthProvider: "github"
         }).then((res) => {
-          if (res.data.data.userId) {
-            conf.set('userId', res.data.data.userId)
+          if (res.data.data._id) {
+            conf.set('userId', res.data.data._id)
             conf.set('login', data.login)
           }
           status.stop()
@@ -51,4 +52,9 @@ exports.login = function () {
       console.log(chalk.green('Sucessfully authenticated!'));
     }
   });
+}
+
+exports.logout = function() {
+  conf.clear();
+  console.log('Clean Data in local storage');
 }
