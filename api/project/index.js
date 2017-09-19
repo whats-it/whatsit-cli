@@ -6,25 +6,17 @@ var figlet      = require('figlet');
 var inquirer    = require('inquirer');
 var Spinner     = CLI.Spinner;
 var github = require('../github');
-var _           = require('lodash');
 var Promise = require('promise');
 var git         = require('simple-git')();
-var touch       = require('touch');
-var fs          = require('fs');
-var files       = require('../../lib/files');
-var WhatsIt  = require('whatsit-sdk-js')
-// var WhatsIt  = require('../../../whatsit-sdk-js/dist/WhatsIt')
+// var WhatsIt  = require('whatsit-sdk-js')
+var WhatsIt  = require('../../../whatsit-sdk-js/dist/WhatsIt')
 let aw = new WhatsIt({});
-let awUser = aw.getUser();
 let awProject = aw.getProject();
-let awInstance = aw.getInstance();
 var Configstore = require('configstore');
+
 var pkg         = require('../../package.json')
-const conf = require('../../util/config')
 let awApi = require('../../api')
 const confStore = new Configstore(pkg.name, {foo: 'bar'});
-var repos = new Map();
-var tmpProjects = new Map();
 
 exports.add  = function (options) {
   return new Promise((resolve, reject) => {
@@ -41,294 +33,379 @@ exports.add  = function (options) {
         }
       ];
 
-      inquirer.prompt(questions).then((projectName) => {
-        // console.log('Your project name is ' + JSON.stringify(projectName));
-        addProject(projectName.projectName, resolve);
-      });
+      inquirer.prompt(questions)
+        .then((answers) => {
+          addProject(answers.projectName);
+        });
 
     } else if (options.projectName) {
-      addProject(options.projectName, resolve);
+      addProject(options.projectName);
     }
   })
-}
-
-function addProject(projectName, resolve) {
-  var status = new Spinner('Adding a project ...');
-  status.start();
-  var data = {
-    name: projectName,
-    owner: confStore.get('userId'),
-    status: 'Preparing'
-  };
-
-  // Invoke addProject
-  awProject.addProject(data)
-    .then((res) => {
-      if (res != null) {
-        console.log(JSON.stringify(res.data, null, 2));
-        console.log('A project ' + res.data.data.name + ' is created');
-        resolve(res.data.data._id)
-      }
-      status.stop();
-    })
-    .catch(err => {
-      console.error(err)
-      status.stop();
-    })
 }
 
 exports.project = function (options) {
+
+  console.log( 'options : ' + JSON.stringify(options,null, 2));
+
   return new Promise ((resolve, reject) => {
-    let userId = confStore.get('userId')
-    if (options.list == true) {
-      if (userId == null) {
-        console.log('Can not find userId in configstore');
-      }
-      awApi.getProjectsByUser(userId)
-        .then((projects) => {
-          showProjects(projects)
-          resolve()
+
+    if (options.list) {
+      // Query projects by userId. Doesn't need to type option
+      cmdShowProjects()
+        .then(() => {
+          resolve();
         })
-    } else if (options.subscriber == true) {
-      reject('Error : -s <subscriber> | Need subscriber emails')
-    } else if (options.subscriber != null) {
-      if (options.projectId == true) {
-        awApi.getProjectsByUser(userId)
-          .then((projects) => awApi.selectProject(projects))
-          .then((project) => awApi.updateSubscriber(project._id, options.subscriber))
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      } else if (options.projectId != null) {
-        awApi.updateSubscriber(options.projectId, options.subscriber)
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      }
-    } else if (options.branch == true) {
-      reject('Error : -d <branch> | Need a branch name')
-    } else if (options.branch != null) {
-      if (options.projectId != null) {
-        updateBranch(options.projectId, options.branch)
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      } else {
-        awApi.getProjectsByUser(userId)
-          .then((projects) => awApi.selectProject(projects))
-          .then((project) => updateBranch(project._id, options.branch))
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      }
-    } else if (options.delete == true) {
-      awApi.getProjectsByUser(userId)
-        .then((projects) => awApi.selectProject(projects))
-        .then((project) => deleteProjectByProjectId(project._id))
-        .then(() => resolve())
-    } else if (options.delete != null) {
-      deleteProjectByProjectId(options.delete)
-    } else if (options.when == true || options.interval == true || options.cron == true) {
-      reject('Error : Please input time')
-    } else if (options.when != null) {
-      if (options.projectId == true) {
-        awApi.getProjectsByUser(userId)
-          .then((projects) => awApi.selectProject(projects))
-          .then((project) => updateScheduleWhen(project._id, options.when))
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      } else if (options.projectId != null) {
-        updateScheduleWhen(options.projectId, options.when)
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      }
-    } else if (options.interval != null) {
-      if (options.projectId == true) {
-        awApi.getProjectsByUser(userId)
-          .then((projects) => awApi.selectProject(projects))
-          .then((project) => updateScheduleInterval(project._id, options.interval))
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      } else if (options.projectId != null ) {
-        updateScheduleInterval(options.projectId, options.interval)
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      }
-    } else if (options.cron != null) {
-      if (options.projectId != null) {
-        awApi.updateScheduleCron(options.projectId, options.interval)
-          .then(() => resolve())
-      } else {
-        awApi.getProjectsByUser(userId)
-          .then((projects) => awApi.selectProject(projects))
-          .then((project) => awApi.updateScheduleCron(project._id, options.interval))
-          .then(() => resolve())
-      }
-    } else if (!options.list && !options.interval && !options.when
-      && !options.cron && !options.delete
-      && !options.subscriber
-      && !options.branch) {
-      if (options.projectId == true) {
-        awApi.getProjectsByUser(userId)
-          .then((projects) => awApi.selectProject(projects))
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      } else if (options.projectId != null) {
-        awApi.getProject(options.projectId)
-          .then((project) => showProjectInfo(project))
-          .then(() => resolve())
-      }
+        .catch((err) => {
+          console.log('An error occurred : ' + err);
+          reject(err);
+        });
+    } else if (options.name) {
+      // create a new project
+      cmdCreateProject(options.name)
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          console.log('An error occurred : ' + err);
+          reject(err);
+        });
+    } else if (options.trainset) {
+      // export train-set
+      cmdExportTrainset(options.trainset)
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          console.log('An error occurred : ' + err);
+          reject(err);
+        });
+    } else if (options.trainsettype) {
+      // export train-set as specific type
+      cmdExportTrainsetType(options.trainsettype)
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          console.log('An error occurred : ' + err);
+          reject(err);
+        });
     }
-  })
+  });
 }
 
-function checkRepo(owner, repo) {
-  return new Promise ((resolve, reject) => {
-    let options = {
-      owner: owner,
-      repo: repo
+/**
+ * command : show all of project
+ * @return {*|Promise}
+ */
+function cmdShowProjects() {
+
+  return new Promise((resolve, reject) => {
+    let userId = getUserId();
+    if (userId == null) {
+      console.log('Firstly, You need to login');
+      return ;
     }
-    github.checkRepo(options, function (repo) {
-      resolve(repo)
-    })
-  })
+
+    awApi.getProjectsByUser(userId)
+      .then((projects) => {
+        showProjects(projects);
+        resolve();
+      });
+  });
 }
 
-function selectRepo(login) {
-  return new Promise ((resolve, reject) => {
-    github.getRepos(login, function (data) {
-      let repoArray = []
-      data.forEach(repo => {
-        repoArray.push(repo.full_name)
-        repos.set(repo.full_name, repo)
-      })
-      promptRepos(repoArray, (data) => {
-        resolve(repos.get(data.repo))
-      })
-    })
-  })
-}
+/**
+ * command : create a project
+ * @param name A new project's name
+ * @return {*|Promise}
+ */
+function cmdCreateProject(name) {
 
-function selectLogin(orgs) {
-  return new Promise ((resolve, reject) => {
-    let orgArray = [confStore.get('login')]
-    orgs.forEach(org => {
-      orgArray.push(org.login)
-    })
-    promptOrg(orgArray, (data) => {
-      resolve(data.user)
-    })
-  })
-}
-
-function promptRepos(repos, callback) {
-  var questions = [
-    {
-      name: 'repo',
-      type: 'list',
-      message: 'Select a repository',
-      choices: repos
+  return new Promise((resolve, reject) => {
+    console.log('Create a new project');
+    if (typeof name == 'boolean') {
+      // User just type -a without project name
+      askNewProjectName()
+        .then((projectName) => {
+          // create a new Project as projectName
+          return addProject(projectName);
+        })
+        // Todo : to be edited by response message
+        .then((projectId) => {
+          resolve('Created a new Project as ' + projectId);
+        });
+    } else {
+      // User type -a and projectName
+      // create a new Project as projectName
+      addProject(options.name)
+        .then(()=>{
+          resolve();
+        });
     }
-  ];
-  inquirer.prompt(questions).then(callback);
+  });
 }
 
-function promptOrg(orgs, callback) {
-  var questions = [
-    {
-      name: 'user',
-      type: 'list',
-      message: 'Select a user or organization',
-      choices: orgs,
-      default: [confStore.get('userId')],
+/**
+ * command : export trainset
+ * @param trainset The trainset's id
+ * @return {*|Promise}
+ */
+function cmdExportTrainset(trainset) {
+
+  return new Promise((resolve, reject) => {
+    // Todo : handling reject & exception
+    if (typeof trainset == 'boolean') {
+      askProjectName()
+        .then((res) => {
+          return getprojectIdByName(res);
+        })
+        .then((projectId)=>{
+          return awProject.getTrainset(projectId);
+        })
+        .then((res) => {
+          console.log('Trainset\n' + JSON.stringify(res.data, null, 2));
+        })
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    } else {
+      awProject.getTrainset(projectId)
+        .then((res) => {
+          console.log('Trainset\n' + JSON.stringify(res.data, null, 2));
+        })
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          reject(err);
+        });
     }
-  ];
-  inquirer.prompt(questions).then(callback);
+  });
 }
 
+function cmdExportTrainsetType(type) {
 
-function getInstancesByProject (project) {
-  return new Promise ((resolve, reject) => {
-    var status = new Spinner('Getting instances ...');
+  return new Promise((resolve, reject) => {
+    // Todo : handling reject & exception
+    if (typeof type == 'boolean') {
+      askProjectName()
+        .then((res) => {
+          return getprojectIdByName(res);
+        })
+        .then((projectId)=>{
+          return askTrainsetType(projectId);
+        })
+        .then((res) => {
+          console.log('Trainset\n' + JSON.stringify(res.data, null, 2));
+        })
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    } else {
+      awProject.getTrainset(projectId)
+        .then((res) => {
+          console.log('Trainset\n' + JSON.stringify(res.data, null, 2));
+        })
+        .then(() => {
+          resolve();
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    }
+  });
+}
+
+/**
+ * Add a new Project with Project Name
+ * @param projectName Name of new Project
+ * @param resolve
+ */
+function addProject(projectName) {
+
+  return new Promise( (resolve, reject) => {
+
+    var status = new Spinner('Adding a project ...');
     status.start();
-    confStore.set(conf.LAST_ADDED_PROJECT, project.full_name)
-    awInstance.getInstancesByProject(project._id).then(res => {
-      if (res!= null) {
-        status.stop()
-        resolve(res.data.data.instances)
-      }
-    }).catch(err => {
-      console.error(err)
-      status.stop()
-      reject(err)
-    })
-  })
-}
-
-function addRepo (repo) {
-  return new Promise ((resolve, reject) => {
     var data = {
-      name: repo.name,
-      full_name: repo.full_name,
-      owner: confStore.get('userId'),
-      html_url: repo.html_url,
-      git_url: repo.git_url,
-      default_branch: repo.default_branch,
-      provider: "github"
+      name: projectName,
+      userId: confStore.get('userId'),
+      //thumbnail : optional
+    };
+
+    // Invoke addProject
+    awProject.addProject(data)
+      .then((res) => {
+        resolve(res.data);
+        status.stop();
+      })
+      .catch(err => {
+        console.error(err)
+        status.stop();
+        reject(err);
+      })
+  });
+}
+
+/**
+ * Asking a new project name
+ * @return {*|Promise}
+ */
+function askNewProjectName() {
+
+  return new Promise((resolve, reject) => {
+    var questions = [
+      {
+        name: 'projectName',
+        type: 'input',
+        message: 'Type Project Name',
+      }
+    ];
+
+    inquirer.prompt(questions)
+      .then((answers) => {
+        resolve(answers.projectName);
+      })
+      .catch((err) => {
+        reject(err);
+      })
+  });
+}
+
+/**
+ * Ask choice project
+ * @return {*|Promise}
+ */
+function askProjectName() {
+
+  let userId = getUserId();
+
+  return new Promise( (resolve, reject) => {
+    awApi.getProjectsByUser(userId)
+      .then((projects) => {
+        // ask choice project in list
+        var fineProjects = extractProjectName(projects);
+
+        // Todo : use async.waterfall
+        if (fineProjects.length != 0) {
+          var questions = [
+            {
+              name: 'selectedProject',
+              type: 'list',
+              message: 'Select Project',
+              choices: fineProjects
+            }
+          ];
+          inquirer.prompt(questions)
+            .then((answers) => {
+              resolve({
+                projects: projects,
+                selected: answers.selectedProject
+              });
+            });
+        } else {
+          reject('Reject : There is no project');
+        }
+      })
+  });
+}
+
+/**
+ * Make a project list which has only each project name
+ * @param projects All project info.
+ * @return {Array}
+ */
+function extractProjectName(projects) {
+
+  var ret = [];
+  projects.forEach((project) => {
+    ret.push(project.name);
+  });
+
+  return ret;
+}
+
+/**
+ * Retrieve selected projectId
+ * @param res projects and ID of selected project
+ * @return {*|Promise}
+ */
+function getprojectIdByName(res) {
+
+  return new Promise((resolve, reject) => {
+
+    if (res.projects.length == 0) {
+      reject('There is no project');
     }
-    confStore.set(conf.LAST_ADDED_PROJECT, repo.full_name)
-    awProject.addProject(data).then(res => {
-      if (res != null) {
-        resolve(res.data.projectId)
+
+    res.projects.forEach((project) => {
+      if (project.name == res.selected) {
+        resolve(project._id);
       }
-    }).catch(err => {
-      console.error(err)
-      confStore.delete(conf.LAST_ADDED_PROJECT)
-      reject(err)
-    })
-  })
+    });
+
+    reject('There is no matched project');
+  });
 }
 
-function updateScheduleInterval (projectId, interval) {
-  return new Promise ((resolve, reject) => {
-    awProject.updateScheduleInterval(projectId, interval).then(res => {
-      if (res != null) {
-        resolve(res.data.data)
+function askTrainsetType(projectId) {
+
+  return new Promise((resolve, reject) => {
+
+    var questions = [
+      {
+        name: 'type',
+        type: 'input',
+        message: 'What is type of trainset?',
       }
-    }).catch(err => {
-      console.error(err)
-      reject(err)
-    })
-  })
+    ];
+
+    inquirer.prompt(questions)
+      .then((answers) => {
+        return awProject.getTrainset(projectId,
+          {
+            format: answers.type
+          });
+      })
+      .then((res) => {
+        resolve(res.data);
+        console.log(JSON.stringify(res.data, null, 2));
+      })
+      .catch((err) =>{
+        console.log(JSON.stringify(err));
+      });
+  });
+}
+/**
+ * Get user id from local storage
+ * @return {*}
+ */
+function getUserId() {
+  let _id = confStore.get('userId')
+  if (_id == null) {
+    console.log('Can not find userId in configstore');
+    return null;
+  }
+
+  // create query param with userId
+  var userId = {
+    userId: _id
+  };
+
+  return userId;
 }
 
-function updateScheduleWhen (projectId, when) {
-  return new Promise ((resolve, reject) => {
-    awProject.updateScheduleWhen(projectId, when).then(res => {
-      if (res != null) {
-        resolve(res.data.data)
-      }
-    }).catch(err => {
-      console.error(err)
-      reject(err)
-    })
-  })
-}
-
-function deleteProjectByProjectId (projectId) {
-  return new Promise ((resolve, reject) => {
-    awProject.deleteProject(projectId).then(res => {
-      if (res != null) {
-        resolve()
-      }
-    }).catch(err => {
-      console.error(err)
-      reject(err)
-    })
-  })
-}
-
-function showProjectInfo (project) {
-  console.log(chalk.bold.yellow('Project Information : '))
-  makeProjectInfoFormat(project)
-}
-
+/**
+ * Display project list
+ * @param projects
+ */
 function showProjects (projects) {
   console.log('[' + chalk.bold.yellow(confStore.get('login')) + '] Project list >')
   projects.forEach((project, i) => {
@@ -336,37 +413,12 @@ function showProjects (projects) {
   })
 }
 
+/**
+ * Display format for project list
+ * @param project
+ * @param index
+ */
 function makeProjectFormat (project, index) {
   let split = chalk.blue('|')
-  console.log(index + '. ' + chalk.green(`${project.full_name}`) + `${split}ID:${project._id}`)
+  console.log(index + '. ' + chalk.green(`${project.name}`) + `${split}ID:${project._id}`)
 }
-
-function makeProjectInfoFormat (project) {
-  Object.keys(project).map(function(key ) {
-    console.log(chalk.blue(`${key}`) + `:${project[key]}`)
-  });
-}
-
-function showAddProjectDoneMsg (projectName, projectId) {
-  console.log(chalk.bold.green(`${projectName}`) + ' is successfully added.')
-}
-
-function showInstances (instances) {
-  console.log('[' + chalk.bold.yellow(confStore.get(conf.LAST_ADDED_PROJECT)) + '] Run History >')
-  instances.forEach((instance, i) => {
-    makeInstanceFormat(instance, i)
-  })
-}
-
-function makeInstanceFormat (instance, index) {
-  let status
-  if (instance.status == "PASS") {
-    status = chalk.green(`${instance.status}  `)
-  } else if (instance.status == "FAIL") {
-    status = chalk.magenta(`${instance.status}  `)
-  } else if (instance.status == "BROKEN") {
-    status = chalk.red(`${instance.status}`)
-  }
-  console.log(index + '. ' + status + `:${instance._id}:`)
-}
-

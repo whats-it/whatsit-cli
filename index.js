@@ -44,17 +44,17 @@ prog
   })
 
   // the project command
-  // -p
-  // -l <1234>
   .command('project', "Project command for whatsit.net")
   .help('')
   .option('-l, --list', 'Show project list')
   .option('-a, --name <name>', 'Create a new Project')
   .option('-g, --trainset <trainset>', 'To get train-set')
+  .option('-t, --trainsettype <trainsettype>', 'To get train-set as specific type')
   .action((args, options, logger) => {
     if (!options.list
     && !options.name
-    && !options.trainset) {
+    && !options.trainset
+    && !options.trainsettype) {
       showHelp()
     }
     awProject.project(options).then((res) => {
@@ -66,9 +66,9 @@ prog
   // the dataset command
   .command('dataset', "Dataset command for whatsit.net")
   .help('')
-  .option('-p, --projectId <projectId>', 'Project ID')
   .option('-l, --list <list>', 'All List of dataset')
   .option('-a, --add <add>', 'Add a new Dataset')
+  .option('-p, --projectId <projectId>', 'Project ID')
   .action((args, options, logger) => {
     if (!options.add && !options.delete
       && !options.projectId
