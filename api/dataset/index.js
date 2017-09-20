@@ -12,8 +12,8 @@ var git         = require('simple-git')();
 var touch       = require('touch');
 var fs          = require('fs');
 var files       = require('../../lib/files');
-// var WhatsIt  = require('whatsit-sdk-js')
-var WhatsIt  = require('../../../whatsit-sdk-js/dist/WhatsIt')
+var WhatsIt  = require('whatsit-sdk-js')
+// var WhatsIt  = require('../../../whatsit-sdk-js/dist/WhatsIt')
 let aw = new WhatsIt({});
 let awDataset = aw.getDataset();
 var Configstore = require('configstore');
@@ -22,255 +22,253 @@ const conf = require('../../util/config')
 let awApi = require('../../api')
 var inquirer    = require('inquirer');
 
+var async = require('async');
+
 const confStore = new Configstore(pkg.name, {foo: 'bar'});
 
-let proUtil = require('../../util/questions');
-
 exports.dataset = function (options) {
-
   console.log(JSON.stringify(options, null,2));
 
+  // Below code is for local server. Please use below code, if you want to test on your machine
+  // aw.setBase("http://127.0.0.1:3000");
   return new Promise((resolve, reject) => {
 
-    if (options.projectId) {
-      cmdRetrieveDataset(options.projectId)
-        .then((res) => {
-          console.log(JSON.stringify(res, null, 2));
-          resolve(res);
-        })
-        .catch((err) => {
-          console.log(err);
-          reject(err);
-        })
+    // CRUD for dataset
+    if (!options.projectId && options.list) {
+
+      let userId = getUserId();
+      // To retrieve list of project
+      // let _id = confStore.get('userId')
+      // var userId = {
+      //   userId: _id
+      // };
+
+      awApi.getProjectsByUser(userId)
+        .then((projects) => {
+
+          var fineProjects = extractProjectName(projects);
+
+          // Todo : use async.waterfall
+          if (fineProjects.length != 0) {
+
+            // User has some project
+            askOneofProject(fineProjects, (selectedProject) => {
+              // select one of project
+              getProjectIdByName(projects, selectedProject, (projectId) => {
+                // retrieve projectId by project name
+                var queryParam = {
+                  projectId: projectId
+                }
+
+                awDataset.getDatasetByProjectId(queryParam)
+                  .then((res) => {
+                    if (res != null) {
+                      // Todo : handling error message in response
+                      console.log(JSON.stringify(res.data, null, 2));
+                      resolve(res.data.data._id)
+                    } else {
+                      console.log('Response is null');
+                    }
+                  })
+                  .catch(err => {
+                    console.error(err)
+                  });
+
+              });
+            });
+          }
+        });
+    } else if (options.projectId) {
+      // retrieve all of datasets
+      // var queryParam = {
+      //   projectId: '59ba47911f7a3746a77558e3'
+      // }
+      //
+      // awDataset.getDatasetByProjectId(queryParam)
+      //   .then((res) => {
+      //     if (res != null) {
+      //       // Todo : handling error message in response
+      //       console.log(JSON.stringify(res.data, null, 2));
+      //       resolve(res.data.data._id)
+      //     } else {
+      //       console.log('Response is null');
+      //     }
+      //   })
+      //   .catch(err => {
+      //     console.error(err)
+      //   });
     } else if (options.add) {
-      cmdAddDataset(options.add)
-        .then((res) => {
-          console.log(JSON.stringify(res, null, 2));
-        })
-    } else if (options.get) {
-      cmdGetDataset(options.get)
-        .then((res) => {
-          console.log(JSON.stringify(res, null, 2));
-          resolve();
-        });
-    } else if (options.put) {
+      // To retrieve list of project
+      let _id = confStore.get('userId')
+      var userId = {
+        userId: _id
+      };
 
-    }
-  });
-}
+      awApi.getProjectsByUser(userId)
+        .then((projects) => {
 
-/**
- * Retrieve dataset
- * @param projectId
- * @return {*|Promise}
- */
-function cmdRetrieveDataset(projectId) {
+          console.log(JSON.stringify(projects));
 
-  return new Promise((resolve, reject) => {
-    if (typeof projectId == 'boolean') {
-      proUtil.askProject()
-        .then((projectId)=>{
-          return awDataset.getDatasetByProjectId(
-            {
-              projectId: projectId
-            })
-        })
-        .then((res) => {
-          resolve(res.data);
-        });
-    } else {
-      awDataset.getDatasetByProjectId(
-        {
-          projectId: projectId
-        })
-        .then((res) => {
-          resolve(res.data);
-        });
-    }
-  });
-}
+          var fineProjects = extractProjectName(projects);
 
-/**
- * Update a dataset
- * @param add
- * @return {*|Promise}
- */
-function cmdAddDataset(add) {
+          console.log(JSON.stringify(fineProjects));
 
-  return new Promise((resolve, reject) => {
-    proUtil.askProject()
-      .then((projectId) => {
-        return askDatasetName(projectId);
-      })
-      .then((options) => {
-        return awDataset.addDataset(options);
-      })
-      .then((res) => {
-        resolve(res.data);
-      })
-      .catch((err) => {
-        console.log('An error : ' + err);
-      });
-  });
-}
+          // Todo : use async.waterfall
+          if (fineProjects.length != 0) {
+            // User has some project
+            askOneofProject(fineProjects, (selectedProject) => {
+              // select one of project
+              getProjectIdByName(projects, selectedProject, (projectId) => {
+                // retrieve projectId by project name
 
-/**
- * Retrieve dataset ad dataset's id
- * @param get
- * @return {*|Promise}
- */
-function cmdGetDataset(get) {
+                var questions = [
+                  // ask about type of data
+                  {
+                    name: 'datatype',
+                    type: 'input',
+                    message: 'Type data type. For example, video, image',
+                  },
+                  // ask about name
+                  {
+                    name: 'name',
+                    type: 'input',
+                    message: 'type data\'s name'
+                  },
+                  // ask about source
+                  {
+                    name: 'source',
+                    type: 'input',
+                    message: 'type source url'
+                  },
+                  {
+                    name: 'desc',
+                    type: 'input',
+                    message: 'type description for data'
+                  }
+                ];
 
-  return new Promise((resolve, reject) => {
+                inquirer.prompt(questions).then((res) => {
+                  console.log(JSON.stringify(res, null, 2));
 
-    if (typeof get == 'boolean') {
-      proUtil.askProject()
-        .then((projectId) => {
-          return cmdRetrieveDataset(projectId);
-        })
-        .then((res) => {
-          return createDatasetList(res);
-        })
-        .then((res) => {
-          return askChoiceDataset(res);
-        })
-        .then((id) => {
-          return awDataset.getDatasetByDatasetId(id);
-        })
-        .then((res) => {
-          resolve(res.data);
-        });
-    } else {
-      awDataset.getDatasetByDatasetId(id)
-        .then((res) => {
-          resolve(res.data);
+                  // var options = {
+                  //   projectId: projectId,
+                  //   name: res.name,
+                  //   desc: res.desc,
+                  //   type: res.datatype,
+                  // };
+                  //
+                  // options.data = {
+                  //   name: res.name+'-data',
+                  //   source: res.source,
+                  // };
+                  //
+                  // options.data.sections = [
+                  //   1504858057,1504858080
+                  // ];
+
+                  var options = makeDummy4Dataset(projectId, res);
+
+                  console.log('addDataset options is ' + JSON.stringify(options, null, 2));
+
+                  awDataset.addDataset(options)
+                    .then((res) => {
+                      if (res != null) {
+                        // Todo : handling error message in response
+                        console.log(JSON.stringify(res.data, null, 2));
+                        resolve(res.data.data._id)
+                      } else {
+                        console.log('Response is null');
+                      }
+                    })
+                    .catch(err => {
+                      console.error(err)
+                    });
+                });
+              });
+            });
+          }
         });
     }
   });
+
 }
 
-/**
- * Questions for making dataset by cli
- * @param projectId
- * @return {*|Promise}
- */
-function askDatasetName(projectId) {
+function getUserId() {
+  let _id = confStore.get('userId')
+  var userId = {
+    userId: _id
+  };
 
-  return new Promise((resolve, reject) => {
-
-    let questions = [
-      {
-        name: 'name',
-        type: 'input',
-        message: 'Enter dataset name'
-      },
-      {
-        name: 'desc',
-        type: 'input',
-        message: 'Enter description for dataset'
-      },
-      {
-        name: 'type',
-        type: 'input',
-        message: 'Enter type of dataset'
-      },
-      {
-        name: 'guide',
-        type: 'input',
-        message: 'Data will be created with dummy. To continue, hit a any key'
-      }
-    ];
-
-    inquirer.prompt(questions)
-      .then((answers) => {
-        answers.projectId = projectId;
-        var options = makeDummy4Dataset(answers);
-        resolve(options);
-      });
-  });
+  return userId;
 }
-
-/**
- * Showing datasets list
- * @param res getDatasets's response message
- * @return {*|Promise}
- */
-function createDatasetList(res) {
-
-  return new Promise((resolve, reject) => {
-
-    if (res.responseStatus.indexOf('SUCCESS') != 0 ) {
-      return reject('Can not get datasets');
-    }
-
-    var list = [];
-    res.data.Datasets.forEach((dataset) => {
-
-      var temp = dataset.name + ' - ' + dataset._id;
-
-      list.push(temp);
-    });
-
-    resolve(list);
-
-  });
-}
-
-/**
- * Questionnaire for choice one of dataset
- * @param list Datasets' list
- * @return {*|Promise}
- */
-function askChoiceDataset(list) {
-
-  return new Promise((resolve, reject) => {
-
-    var questions = [
-      {
-        name: 'dataset',
-        type: 'list',
-        message: 'Please select of dataset to query',
-        choices: list
-      }
-    ];
-
-    inquirer.prompt(questions)
-      .then((answers) => {
-
-        var temp = answers.dataset.split(' - ');
-
-        resolve(temp[1]);
-      });
-  });
-}
-
-/**
- * prepare dummy data for testing postDataset
- * @param answers
- * @return {{projectId: *, name, desc: *, status: string, type}}
- */
-function makeDummy4Dataset(answers) {
-
+function makeDummy4Dataset(projectId, res) {
   var options = {
-    projectId: answers.projectId,
-    name: answers.name,
-    desc: answers.desc,
-    status: 'preparing',
-    type: answers.type,
+    projectId: projectId,
+    name: res.name,
+    desc: res.desc,
+    type: res.datatype,
   };
 
-  options.data = [];
-
-  var data = {
-    name: answers.name+'-data',
-    source: 'https://bluehack.net',
+  options.data = {
+    name: res.name+'-data',
+    source: res.source,
   };
 
-  data.sections = [
+  options.data.sections = [
     1504858057,1504858080
   ];
-
-  options.data.push(data);
-
   return options;
+}
+/**
+ * Ask user selection
+ * @param fineProjects array of project name
+ * @param cb callback
+ */
+function askOneofProject(fineProjects, cb) {
+  var questions = [
+    {
+      name: 'selectedProject',
+      type: 'list',
+      message: 'Select one of projects',
+      choices: fineProjects,
+    }
+  ];
+
+  inquirer.prompt(questions).then((answers) => {
+    cb(answers.selectedProject);
+  });
+}
+
+/**
+ * To extract project name
+ * @param projects [array] projects data
+ */
+function extractProjectName(projects) {
+
+  var ret = [];
+  projects.forEach((project) => {
+    ret.push(project.name);
+  });
+
+  return ret;
+}
+
+/**
+ * Retrieve ProjectId by ProjectName
+ * @param projects list of project
+ * @param name project name
+ * @param cb callback
+ * @return {*} projectId
+ */
+function getProjectIdByName(projects, name, cb) {
+
+  if (projects.length == 0) {
+    return cb(0);
+  }
+
+  projects.forEach((project) => {
+    if (project.name == name) {
+      cb(project._id);
+    }
+  });
 }
