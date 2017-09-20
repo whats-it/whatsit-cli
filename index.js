@@ -46,15 +46,15 @@ prog
   // the project command
   .command('project', "Project command for whatsit.net")
   .help('')
-  .option('-l, --list', 'Show project list')
+  .option('-l, --list <list>', 'Show project list')
   .option('-a, --name <name>', 'Create a new Project')
   .option('-g, --trainset <trainset>', 'To get train-set')
   .option('-t, --trainsettype <trainsettype>', 'To get train-set as specific type')
   .action((args, options, logger) => {
     if (!options.list
-    && !options.name
-    && !options.trainset
-    && !options.trainsettype) {
+      && !options.name
+      && !options.trainset
+      && !options.trainsettype) {
       showHelp()
     }
     awProject.project(options).then((res) => {
@@ -66,13 +66,17 @@ prog
   // the dataset command
   .command('dataset', "Dataset command for whatsit.net")
   .help('')
-  .option('-l, --list <list>', 'All List of dataset')
-  .option('-a, --add <add>', 'Add a new Dataset')
+  .option('-l, --projectId <projectId>', 'All List of dataset')
+  .option('-a, --add', 'Add a new Dataset')
+  .option('-g, --get <get>', 'To get dataset')
+  .option('-u, --put <put>', 'To update dataset')
+
   .option('-p, --projectId <projectId>', 'Project ID')
   .action((args, options, logger) => {
-    if (!options.add && !options.delete
-      && !options.projectId
-      && !options.list) {
+    if (!options.projectId
+      && !options.add
+      && !options.get
+      && !options.put) {
       showHelp()
     }
     awDataset.dataset(options).then((res) => {
