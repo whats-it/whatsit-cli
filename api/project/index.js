@@ -18,6 +18,8 @@ var pkg         = require('../../package.json')
 let awApi = require('../../api')
 const confStore = new Configstore(pkg.name, {foo: 'bar'});
 
+let proUtil = require('../../util/questions');
+
 exports.add  = function (options) {
   return new Promise((resolve, reject) => {
 
@@ -29,7 +31,7 @@ exports.add  = function (options) {
         {
           name: 'projectName',
           type: 'input',
-          message: 'Type Project Name',
+          message: 'Enter Project Name',
         }
       ];
 
@@ -156,10 +158,7 @@ function cmdExportTrainset(trainset) {
   return new Promise((resolve, reject) => {
     // Todo : handling reject & exception
     if (typeof trainset == 'boolean') {
-      askProjectName()
-        .then((res) => {
-          return getprojectIdByName(res);
-        })
+      proUtil.askProject()
         .then((projectId)=>{
           return awProject.getTrainset(projectId);
         })
@@ -192,10 +191,7 @@ function cmdExportTrainsetType(type) {
   return new Promise((resolve, reject) => {
     // Todo : handling reject & exception
     if (typeof type == 'boolean') {
-      askProjectName()
-        .then((res) => {
-          return getprojectIdByName(res);
-        })
+      proUtil.askProject()
         .then((projectId)=>{
           return askTrainsetType(projectId);
         })
@@ -265,7 +261,7 @@ function askNewProjectName() {
       {
         name: 'projectName',
         type: 'input',
-        message: 'Type Project Name',
+        message: 'Enter Project Name',
       }
     ];
 
@@ -276,82 +272,6 @@ function askNewProjectName() {
       .catch((err) => {
         reject(err);
       })
-  });
-}
-
-/**
- * Ask choice project
- * @return {*|Promise}
- */
-function askProjectName() {
-
-  let userId = getUserId();
-
-  return new Promise( (resolve, reject) => {
-    awApi.getProjectsByUser(userId)
-      .then((projects) => {
-        // ask choice project in list
-        var fineProjects = extractProjectName(projects);
-
-        // Todo : use async.waterfall
-        if (fineProjects.length != 0) {
-          var questions = [
-            {
-              name: 'selectedProject',
-              type: 'list',
-              message: 'Select Project',
-              choices: fineProjects
-            }
-          ];
-          inquirer.prompt(questions)
-            .then((answers) => {
-              resolve({
-                projects: projects,
-                selected: answers.selectedProject
-              });
-            });
-        } else {
-          reject('Reject : There is no project');
-        }
-      })
-  });
-}
-
-/**
- * Make a project list which has only each project name
- * @param projects All project info.
- * @return {Array}
- */
-function extractProjectName(projects) {
-
-  var ret = [];
-  projects.forEach((project) => {
-    ret.push(project.name);
-  });
-
-  return ret;
-}
-
-/**
- * Retrieve selected projectId
- * @param res projects and ID of selected project
- * @return {*|Promise}
- */
-function getprojectIdByName(res) {
-
-  return new Promise((resolve, reject) => {
-
-    if (res.projects.length == 0) {
-      reject('There is no project');
-    }
-
-    res.projects.forEach((project) => {
-      if (project.name == res.selected) {
-        resolve(project._id);
-      }
-    });
-
-    reject('There is no matched project');
   });
 }
 
@@ -383,6 +303,7 @@ function askTrainsetType(projectId) {
       });
   });
 }
+
 /**
  * Get user id from local storage
  * @return {*}
