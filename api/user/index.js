@@ -2,16 +2,12 @@
 
 var chalk       = require('chalk');
 var CLI         = require('clui');
-var figlet      = require('figlet');
 var inquirer    = require('inquirer');
 var Spinner     = CLI.Spinner;
-var github = require('../github');
+var github      = require('../github');
 var _           = require('lodash');
-var git         = require('simple-git')();
-var touch       = require('touch');
-var fs          = require('fs');
-var files       = require('../../lib/files');
-var WhatsIt  = require('whatsit-sdk-js')
+// var WhatsIt  = require('whatsit-sdk-js')
+var WhatsIt  = require('../../../whatsit-sdk-js/dist/WhatsIt')
 let aw = new WhatsIt({});
 let awUser = aw.getUser();
 var Configstore = require('configstore');
@@ -28,6 +24,7 @@ exports.login = function () {
         case 422:
           console.log(chalk.red('You already have an access token.'));
           console.log(chalk.red('Delete the old access token (Go to https://github.com/settings/tokens)'));
+          // Todo : To check whether token is stored or not in local storage(configstore)
           break;
       }
     }
@@ -41,14 +38,22 @@ exports.login = function () {
           email: data.email,
           oauthProvider: "github"
         }).then((res) => {
-          if (res.data.data.userId) {
-            conf.set('userId', res.data.data.userId)
+          console.log('getProfile Response ' + JSON.stringify(res.data, null, 2));
+          if (res.data.data._id) {
+            conf.set('userId', res.data.data._id)
             conf.set('login', data.login)
           }
           status.stop()
         })
       })
       console.log(chalk.green('Sucessfully authenticated!'));
+    } else {
+      console.log('You are not authenticated');
     }
   });
+}
+
+exports.logout = function() {
+  conf.clear();
+  console.log('Clean Data in local storage');
 }
