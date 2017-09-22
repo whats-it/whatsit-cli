@@ -2,12 +2,9 @@
 
 var chalk       = require('chalk');
 var CLI         = require('clui');
-var figlet      = require('figlet');
 var inquirer    = require('inquirer');
 var Spinner     = CLI.Spinner;
-var github = require('../github');
 var Promise = require('promise');
-var git         = require('simple-git')();
 var WhatsIt  = require('whatsit-sdk-js')
 // var WhatsIt  = require('../../../whatsit-sdk-js/dist/WhatsIt')
 let aw = new WhatsIt({});
@@ -20,35 +17,7 @@ const confStore = new Configstore(pkg.name, {foo: 'bar'});
 
 let proUtil = require('../../util/questions');
 
-exports.add  = function (options) {
-  return new Promise((resolve, reject) => {
-
-    if (!options.projectName) {
-      // To request projectName as mandatory
-      console.log('Need to get project name');
-
-      var questions = [
-        {
-          name: 'projectName',
-          type: 'input',
-          message: 'Enter Project Name',
-        }
-      ];
-
-      inquirer.prompt(questions)
-        .then((answers) => {
-          addProject(answers.projectName);
-        });
-
-    } else if (options.projectName) {
-      addProject(options.projectName);
-    }
-  })
-}
-
 exports.project = function (options) {
-
-  console.log( 'options : ' + JSON.stringify(options,null, 2));
 
   return new Promise ((resolve, reject) => {
 
@@ -72,7 +41,15 @@ exports.project = function (options) {
           console.log('An error occurred : ' + err);
           reject(err);
         });
-    } else if (options.trainset) {
+    }
+  });
+}
+
+exports.trainset = function (options) {
+
+  return new Promise ((resolve, reject) => {
+
+    if (options.trainset) {
       // export train-set
       cmdExportTrainset(options.trainset)
         .then(() => {
@@ -109,10 +86,17 @@ function cmdShowProjects() {
       return ;
     }
 
+    var status = new Spinner('Retrieving your projects ...');
+
     awApi.getProjectsByUser(userId)
       .then((projects) => {
         showProjects(projects);
+        status.stop();
         resolve();
+      })
+      .catch((err) => {
+        status.stop();
+        reject(err);
       });
   });
 }
@@ -125,7 +109,6 @@ function cmdShowProjects() {
 function cmdCreateProject(name) {
 
   return new Promise((resolve, reject) => {
-    console.log('Create a new project');
     if (typeof name == 'boolean') {
       // User just type -a without project name
       askNewProjectName()
@@ -133,9 +116,9 @@ function cmdCreateProject(name) {
           // create a new Project as projectName
           return addProject(projectName);
         })
-        // Todo : to be edited by response message
-        .then((projectId) => {
-          resolve('Created a new Project as ' + projectId);
+        .then((res) => {
+          console.log(JSON.stringify(res, null,2));
+          resolve();
         });
     } else {
       // User type -a and projectName
@@ -243,7 +226,6 @@ function addProject(projectName) {
         status.stop();
       })
       .catch(err => {
-        console.error(err)
         status.stop();
         reject(err);
       })
@@ -261,7 +243,7 @@ function askNewProjectName() {
       {
         name: 'projectName',
         type: 'input',
-        message: 'Enter Project Name',
+        message: 'Enter Project Name : ',
       }
     ];
 
@@ -283,7 +265,7 @@ function askTrainsetType(projectId) {
       {
         name: 'type',
         type: 'input',
-        message: 'What is type of trainset?',
+        message: 'What is type of trainset? ',
       }
     ];
 

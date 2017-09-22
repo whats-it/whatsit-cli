@@ -4,8 +4,8 @@ var CLI         = require('clui');
 var figlet      = require('figlet');
 var inquirer    = require('inquirer');
 var Spinner     = CLI.Spinner;
-// var WhatsIt  = require('whatsit-sdk-js')
-var WhatsIt  = require('../../whatsit-sdk-js/dist/WhatsIt')
+var WhatsIt  = require('whatsit-sdk-js')
+// var WhatsIt  = require('../../whatsit-sdk-js/dist/WhatsIt')
 
 let aw = new WhatsIt({});
 let awProject = aw.getProject();

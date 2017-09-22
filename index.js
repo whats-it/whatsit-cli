@@ -33,31 +33,33 @@ prog
     awUser.logout()
   })
 
-  // the add command
-  .command('add', 'Add a project')
-  .help('')
-  .alias('Add-Project')
-  .option('-n, --projectName <projectName>', 'Project name')
-  .action((args, options, logger) => {
-    awProject.add(options).then(() => {
-    })
-  })
-
   // the project command
   .command('project', "Project command for whatsit.net")
   .help('')
   .option('-l, --list', 'Show project list')
   .option('-a, --name <name>', 'Create a new Project')
-  .option('-g, --trainset <trainset>', 'To get train-set')
-  .option('-t, --trainsettype <trainsettype>', 'To get train-set as specific type')
   .action((args, options, logger) => {
     if (!options.list
-      && !options.name
-      && !options.trainset
-      && !options.trainsettype) {
+      && !options.name) {
       showHelp()
     }
     awProject.project(options).then((res) => {
+    }, (err) => {
+      showHelp(err)
+    })
+  })
+
+  // the project command
+  .command('trainset', "Project command for whatsit.net")
+  .help('')
+  .option('-l, --trainset <trainset>', 'To get train-set')
+  .option('-t, --trainsettype <trainsettype>', 'To get train-set as specific type')
+  .action((args, options, logger) => {
+    if (!options.trainset
+      && !options.trainsettype) {
+      showHelp()
+    }
+    awProject.trainset(options).then((res) => {
     }, (err) => {
       showHelp(err)
     })
