@@ -5,8 +5,8 @@ var inquirer    = require('inquirer');
 var Configstore = require('configstore');
 var pkg         = require('../package.json')
 const confStore = new Configstore(pkg.name, {foo: 'bar'});
-// var WhatsIt  = require('whatsit-sdk-js')
-var WhatsIt  = require('../../whatsit-sdk-js/dist/WhatsIt')
+var WhatsIt  = require('whatsit-sdk-js')
+// var WhatsIt  = require('../../whatsit-sdk-js/dist/WhatsIt')
 let awApi = require('../api')
 
 exports.askProject = function() {

@@ -1,35 +1,21 @@
 "use strict";
 
-var chalk       = require('chalk');
 var CLI         = require('clui');
 var figlet      = require('figlet');
 var inquirer    = require('inquirer');
 var Spinner     = CLI.Spinner;
-var github = require('../github');
 var _           = require('lodash');
 var Promise = require('promise');
-var git         = require('simple-git')();
-var touch       = require('touch');
-var fs          = require('fs');
-var files       = require('../../lib/files');
 var WhatsIt  = require('whatsit-sdk-js')
 // var WhatsIt  = require('../../../whatsit-sdk-js/dist/WhatsIt')
 let aw = new WhatsIt({});
 let awDataset = aw.getDataset();
-var Configstore = require('configstore');
-var pkg         = require('../../package.json')
-const conf = require('../../util/config')
-let awApi = require('../../api')
 var inquirer    = require('inquirer');
 
 let proUtil = require('../../util/questions');
-const confStore = new Configstore(pkg.name, {foo: 'bar'});
 
 exports.dataset = function (options) {
-  console.log(JSON.stringify(options, null, 2));
 
-  // Below code is for local server. Please use below code, if you want to test on your machine
-  // aw.setBase("http://127.0.0.1:3000");
   return new Promise((resolve, reject) => {
 
     if (options.projectId) {
