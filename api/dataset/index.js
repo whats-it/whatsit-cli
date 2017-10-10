@@ -41,6 +41,8 @@ exports.dataset = function (options) {
         });
     } else if (options.put) {
 
+    } else if (options.contents) {
+      cmdGetContents(options.contents);
     }
   });
 }
@@ -131,6 +133,40 @@ function cmdGetDataset(get) {
           resolve(res.data);
         });
     }
+  });
+}
+
+function cmdGetContents(contents) {
+
+  return new Promise((resolve, reject) => {
+    proUtil.askProject()
+      .then((projectId) => {
+        return cmdRetrieveDataset(projectId);
+      })
+      .then((res) => {
+        return createDatasetList(res);
+      })
+      .then((res) => {
+        return askChoiceDataset(res);
+      })
+      .then((id) => {
+        return askContentsCount(id);
+      })
+      .then((params) => {
+
+        return awDataset.getDatasetContent(
+          {
+            count: params.count
+          },
+          params.datasetId);
+      })
+      .then((res) => {
+        // console.log('####' + JSON.stringify(res, null, 2))
+        resolve(res.data);
+      })
+      .catch((err) => {
+        console.log('An error : ' + err);
+      });
   });
 }
 
@@ -227,6 +263,32 @@ function askChoiceDataset(list) {
   });
 }
 
+function askContentsCount(id) {
+
+  return new Promise((resolove, reject) => {
+
+    var questions = [
+      {
+        name: 'count',
+        type: 'input',
+        message: 'Please enter count to query'
+      }
+    ];
+
+    inquirer.prompt(questions)
+      .then((answer) => {
+
+        var ret = {
+          datasetId: id,
+          count: answer.count
+        }
+
+        console.log('Answer ' + JSON.stringify(ret, null,2));
+
+        resolove(ret);
+      });
+  });
+}
 /**
  * prepare dummy data for testing postDataset
  * @param answers
