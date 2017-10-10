@@ -49,7 +49,7 @@ prog
     })
   })
 
-  // the project command
+  // the trainset command
   .command('trainset', "Project command for whatsit.net")
   .help('')
   .option('-l, --trainset <trainset>', 'To get train-set')
@@ -72,12 +72,14 @@ prog
   .option('-a, --add', 'Add a new Dataset')
   .option('-g, --get <get>', 'To get dataset')
   .option('-u, --put <put>', 'To update dataset')
+  .option('-c, --contents <contents>', 'To get contents')
 
   .action((args, options, logger) => {
     if (!options.projectId
       && !options.add
       && !options.get
-      && !options.put) {
+      && !options.put
+      && !options.contents) {
       showHelp()
     }
     awDataset.dataset(options).then((res) => {
